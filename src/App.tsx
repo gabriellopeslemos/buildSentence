@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { QuestionForm } from './components/QuestionForm'
 import { SentenceBoard } from './components/DragDropBoard'
 import { ResultCard } from './components/ResultCard'
 import { ScoreSummary } from './components/ScoreSummary'
-import { generateFragments } from './utils/fragmenter'
+import { generateFragments, generateDistractors } from './utils/fragmenter'
 import { validateAnswer } from './utils/validator'
 import type { Question } from './utils/txtParser'
 
@@ -19,14 +19,34 @@ export default function App() {
   const [questions, setQuestions] = useState<Question[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [allFragments, setAllFragments] = useState<Fragment[]>([])
+  const [distractors, setDistractors] = useState<Fragment[]>([])
   const [slots, setSlots] = useState<(Fragment | null)[]>([])
   const [boardKey, setBoardKey] = useState(0)
   const [result, setResult] = useState<boolean | null>(null)
   const [scores, setScores] = useState<boolean[]>([])
+  const [answers, setAnswers] = useState<string[]>([])
+  const [timeLeft, setTimeLeft] = useState(45)
 
   const question = questions[currentIndex] ?? null
   const isLast = currentIndex === questions.length - 1
   const allPlaced = slots.length > 0 && slots.every((s) => s !== null)
+
+  // Countdown timer — runs only during practice
+  useEffect(() => {
+    if (stage !== 'practice') return
+    const id = setInterval(() => setTimeLeft(t => Math.max(0, t - 1)), 1000)
+    return () => clearInterval(id)
+  }, [stage, boardKey])
+
+  // Time ran out → record partial answer, count as wrong and advance
+  useEffect(() => {
+    if (stage !== 'practice' || timeLeft > 0) return
+    const assembled = slots.filter(Boolean).map((f) => (f as Fragment).text).join(' ')
+    setAnswers((prev) => { const u = [...prev]; u[currentIndex] = assembled; return u })
+    if (isLast) handleFinish(false)
+    else handleNext(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft, stage])
 
   function loadQuestion(qs: Question[], index: number) {
     const rawFragments = generateFragments(qs[index].answer)
@@ -34,10 +54,18 @@ export default function App() {
       id: `fragment-${i}-${Math.random().toString(36).slice(2)}`,
       text,
     }))
+    const distractorCount = Math.random() < 0.5 ? 1 : 2
+    const distractorTexts = generateDistractors(qs[index].answer, distractorCount)
+    const fakeFragments: Fragment[] = distractorTexts.map((text, i) => ({
+      id: `distractor-${i}-${Math.random().toString(36).slice(2)}`,
+      text,
+    }))
     setAllFragments(withIds)
+    setDistractors(fakeFragments)
     setSlots(Array(withIds.length).fill(null))
     setBoardKey((k) => k + 1)
     setResult(null)
+    setTimeLeft(45)
     setStage('practice')
   }
 
@@ -51,6 +79,7 @@ export default function App() {
   function handleSubmit() {
     if (!question || !allPlaced) return
     const assembled = (slots as Fragment[]).map((f) => f.text).join(' ')
+    setAnswers((prev) => { const u = [...prev]; u[currentIndex] = assembled; return u })
     setResult(validateAnswer(assembled, question.answer))
     setStage('result')
   }
@@ -84,9 +113,11 @@ export default function App() {
     setQuestions([])
     setCurrentIndex(0)
     setAllFragments([])
+    setDistractors([])
     setSlots([])
     setResult(null)
     setScores([])
+    setAnswers([])
   }
 
   return (
@@ -125,18 +156,29 @@ export default function App() {
               <SentenceBoard
                 key={boardKey}
                 allFragments={allFragments}
+                distractors={distractors}
                 onChange={setSlots}
+                trailChar={question.answer.trimEnd().endsWith('?') ? '?' : undefined}
               />
 
               <div className="pt-1 flex items-center gap-3">
                 {stage === 'practice' && (
-                  <button
-                    onClick={handleSubmit}
-                    disabled={!allPlaced}
-                    className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2 rounded-lg transition-colors"
-                  >
-                    Submit
-                  </button>
+                  <>
+                    <button
+                      onClick={handleSubmit}
+                      disabled={!allPlaced}
+                      className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2 rounded-lg transition-colors"
+                    >
+                      Submit
+                    </button>
+                    <span
+                      className={`text-sm font-mono font-bold tabular-nums ${
+                        timeLeft <= 10 ? 'text-red-500' : 'text-gray-400'
+                      }`}
+                    >
+                      {timeLeft}s
+                    </span>
+                  </>
                 )}
                 <button
                   onClick={handleReset}
@@ -164,6 +206,7 @@ export default function App() {
           <ScoreSummary
             questions={questions}
             scores={scores}
+            answers={answers}
             onRestart={handleReset}
           />
         )}

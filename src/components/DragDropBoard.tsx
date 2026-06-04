@@ -87,17 +87,29 @@ function BankFragment({
 
 interface Props {
   allFragments: Fragment[]
+  distractors: Fragment[]
   onChange: (slots: (Fragment | null)[]) => void
+  trailChar?: string
 }
 
-export function SentenceBoard({ allFragments, onChange }: Props) {
+export function SentenceBoard({ allFragments, distractors, onChange, trailChar }: Props) {
   const [slots, setSlots] = useState<(Fragment | null)[]>(() =>
     Array(allFragments.length).fill(null),
   )
   const [activeId, setActiveId] = useState<string | null>(null)
 
+  // Shuffled once at mount; component remounts per question via key prop
+  const [bankFragments] = useState<Fragment[]>(() => {
+    const combined = [...allFragments, ...distractors]
+    for (let i = combined.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[combined[i], combined[j]] = [combined[j], combined[i]]
+    }
+    return combined
+  })
+
   const usedIds = new Set(slots.filter(Boolean).map((f) => f!.id))
-  const activeFragment = activeId ? allFragments.find((f) => f.id === activeId) : null
+  const activeFragment = activeId ? bankFragments.find((f) => f.id === activeId) : null
 
   function applySlots(next: (Fragment | null)[]) {
     setSlots(next)
@@ -127,7 +139,7 @@ export function SentenceBoard({ allFragments, onChange }: Props) {
     const targetIndex = parseInt((over.id as string).replace('slot-', ''))
     if (isNaN(targetIndex)) return
 
-    const draggedFragment = allFragments.find((f) => f.id === draggedId)
+    const draggedFragment = bankFragments.find((f) => f.id === draggedId)
     if (!draggedFragment) return
 
     const sourceIndex = slots.findIndex((s) => s?.id === draggedId)
@@ -153,10 +165,13 @@ export function SentenceBoard({ allFragments, onChange }: Props) {
           <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3 block">
             Your answer
           </span>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
             {slots.map((slot, i) => (
               <Slot key={i} index={i} fragment={slot} onClear={() => clearSlot(i)} />
             ))}
+            {trailChar && (
+              <span className="text-gray-600 font-medium text-sm">{trailChar}</span>
+            )}
           </div>
         </div>
 
@@ -166,7 +181,7 @@ export function SentenceBoard({ allFragments, onChange }: Props) {
             Available
           </span>
           <div className="flex flex-wrap gap-2">
-            {allFragments.map((fragment) => (
+            {bankFragments.map((fragment) => (
               <BankFragment
                 key={fragment.id}
                 fragment={fragment}

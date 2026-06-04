@@ -3,10 +3,11 @@ import type { Question } from '../utils/txtParser'
 interface Props {
   questions: Question[]
   scores: boolean[]
+  answers: string[]
   onRestart: () => void
 }
 
-export function ScoreSummary({ questions, scores, onRestart }: Props) {
+export function ScoreSummary({ questions, scores, answers, onRestart }: Props) {
   const correct = scores.filter(Boolean).length
   const total = scores.length
   const perfect = correct === total
@@ -22,22 +23,31 @@ export function ScoreSummary({ questions, scores, onRestart }: Props) {
         </p>
       </div>
 
-      <ul className="space-y-2">
+      <ul className="space-y-3">
         {questions.map((q, i) => (
           <li
             key={i}
-            className={`flex items-start gap-3 rounded-lg px-4 py-3 border ${
+            className={`rounded-lg px-4 py-3 border ${
               scores[i] ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
             }`}
           >
-            <span className={`mt-0.5 font-bold ${scores[i] ? 'text-green-600' : 'text-red-500'}`}>
-              {scores[i] ? '✓' : '✗'}
-            </span>
-            <div className="text-sm">
-              <p className="text-gray-700 font-medium">{q.prompt}</p>
-              {!scores[i] && (
-                <p className="text-gray-500 mt-0.5 italic">{q.answer}</p>
-              )}
+            <div className="flex items-start gap-3">
+              <span className={`mt-0.5 font-bold shrink-0 ${scores[i] ? 'text-green-600' : 'text-red-500'}`}>
+                {scores[i] ? '✓' : '✗'}
+              </span>
+              <div className="text-sm space-y-1 min-w-0">
+                <p className="text-gray-700 font-medium">{q.prompt}</p>
+                <p className="text-gray-500">
+                  <span className="font-semibold text-gray-600">Answer: </span>
+                  {q.answer}
+                </p>
+                {!scores[i] && answers[i] && (
+                  <p className="text-red-500">
+                    <span className="font-semibold">Your answer: </span>
+                    {answers[i]}
+                  </p>
+                )}
+              </div>
             </div>
           </li>
         ))}

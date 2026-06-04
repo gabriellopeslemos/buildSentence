@@ -4,20 +4,33 @@ export function generateFragments(answer: string): string[] {
   return shuffle(chunks.map(lowercaseFirst))
 }
 
+const DISTRACTOR_POOL = [
+  'however', 'although', 'despite', 'unless', 'therefore',
+  'meanwhile', 'nevertheless', 'furthermore', 'consequently', 'previously',
+  'suddenly', 'actually', 'certainly', 'obviously', 'apparently',
+  'already', 'still', 'instead', 'somehow', 'elsewhere',
+  'neither', 'whoever', 'whenever', 'whatever', 'wherever',
+  'beyond', 'beneath', 'beside', 'toward', 'within',
+]
+
+export function generateDistractors(answer: string, count: number): string[] {
+  const answerWords = new Set(answer.toLowerCase().replace(/[.!?]+$/, '').split(/\s+/))
+  const pool = DISTRACTOR_POOL.filter((w) => !answerWords.has(w))
+  return shuffle(pool).slice(0, count)
+}
+
 function chunkByWords(text: string): string[] {
   const words = text.split(/\s+/)
 
-  // Too short to split meaningfully
-  if (words.length <= 3) return [text]
+  if (words.length <= 1) return [text]
 
   const chunks: string[] = []
   let i = 0
 
   while (i < words.length) {
     const remaining = words.length - i
-    // Pick chunk size 2 or 3, but never leave a 1-word orphan at the end
-    const maxSize = remaining <= 4 ? remaining : 3
-    const size = maxSize <= 2 ? maxSize : Math.random() < 0.5 ? 2 : 3
+    // Strongly prefer 1-word chunks; occasionally take 2
+    const size = remaining === 1 ? 1 : Math.random() < 0.65 ? 1 : 2
     chunks.push(words.slice(i, i + size).join(' '))
     i += size
   }
