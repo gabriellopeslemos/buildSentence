@@ -26,19 +26,6 @@ export function QuestionForm({ onStart }: Props) {
     onStart(questions, sessionMinutes)
   }
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      const content = ev.target?.result as string
-      setText(content)
-      setError('')
-    }
-    reader.readAsText(file)
-    e.target.value = ''
-  }
-
   return (
     <div className="space-y-4">
       <p className="text-sm text-gray-500">
@@ -58,19 +45,12 @@ export function QuestionForm({ onStart }: Props) {
       {error && <p className="text-red-500 text-sm">{error}</p>}
 
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={handleStart}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-6 py-2 rounded-lg transition-colors"
-          >
-            Start
-          </button>
-
-          <label className="cursor-pointer text-sm text-blue-600 hover:text-blue-800 underline">
-            Load from .txt
-            <input type="file" accept=".txt" className="hidden" onChange={handleFile} />
-          </label>
-        </div>
+        <button
+          onClick={handleStart}
+          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-6 py-2 rounded-lg transition-colors"
+        >
+          Start
+        </button>
 
         <label className="flex items-center gap-2 text-sm text-gray-600">
           Session time
