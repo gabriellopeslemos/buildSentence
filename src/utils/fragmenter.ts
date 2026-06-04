@@ -21,20 +21,28 @@ export function generateDistractors(answer: string, count: number): string[] {
 
 function chunkByWords(text: string): string[] {
   const words = text.split(/\s+/)
+  const n = words.length
 
-  if (words.length <= 1) return [text]
+  if (n === 0) return []
+
+  // Always produce 5–7 chunks, capped by word count
+  const minChunks = Math.min(5, n)
+  const maxChunks = Math.min(7, n)
+  const target =
+    minChunks === maxChunks
+      ? minChunks
+      : minChunks + Math.floor(Math.random() * (maxChunks - minChunks + 1))
+
+  const base = Math.floor(n / target)
+  const remainder = n % target
 
   const chunks: string[] = []
   let i = 0
-
-  while (i < words.length) {
-    const remaining = words.length - i
-    // Strongly prefer 1-word chunks; occasionally take 2
-    const size = remaining === 1 ? 1 : Math.random() < 0.65 ? 1 : 2
+  for (let c = 0; c < target; c++) {
+    const size = c < remainder ? base + 1 : base
     chunks.push(words.slice(i, i + size).join(' '))
     i += size
   }
-
   return chunks
 }
 
