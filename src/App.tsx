@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { QuestionForm } from './components/QuestionForm'
 import { PromptHelper } from './components/PromptHelper'
 import { SentenceBoard } from './components/DragDropBoard'
-import { ResultCard } from './components/ResultCard'
 import { ScoreSummary } from './components/ScoreSummary'
 import { generateFragments, generateDistractors } from './utils/fragmenter'
 import { validateAnswer } from './utils/validator'
@@ -13,7 +12,7 @@ interface Fragment {
   text: string
 }
 
-type Stage = 'input' | 'practice' | 'result' | 'summary'
+type Stage = 'input' | 'practice' | 'summary'
 
 export default function App() {
   const [stage, setStage] = useState<Stage>('input')
@@ -23,7 +22,6 @@ export default function App() {
   const [distractors, setDistractors] = useState<Fragment[]>([])
   const [slots, setSlots] = useState<(Fragment | null)[]>([])
   const [boardKey, setBoardKey] = useState(0)
-  const [result, setResult] = useState<boolean | null>(null)
   const [scores, setScores] = useState<boolean[]>([])
   const [answers, setAnswers] = useState<string[]>([])
   const [timings, setTimings] = useState<number[]>([])
@@ -53,16 +51,16 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft, stage])
 
-  // Session-wide countdown (ticks during practice and result)
+  // Session-wide countdown (ticks during practice)
   useEffect(() => {
-    if (stage !== 'practice' && stage !== 'result') return
+    if (stage !== 'practice') return
     const id = setInterval(() => setSessionTimeLeft(t => Math.max(0, t - 1)), 1000)
     return () => clearInterval(id)
   }, [stage])
 
   // Session timeout → mark all remaining as wrong and go to summary
   useEffect(() => {
-    if ((stage !== 'practice' && stage !== 'result') || sessionTimeLeft > 0) return
+    if (stage !== 'practice' || sessionTimeLeft > 0) return
     const assembled = slots.filter(Boolean).map((f) => (f as Fragment).text).join(' ')
     recordTiming()
     setAnswers((prev) => {
@@ -101,7 +99,6 @@ export default function App() {
     setDistractors(fakeFragments)
     setSlots(Array(withIds.length).fill(null))
     setBoardKey((k) => k + 1)
-    setResult(null)
     setTimeLeft(40)
     questionStartRef.current = Date.now()
     setStage('practice')
@@ -120,14 +117,11 @@ export default function App() {
   function handleSubmit() {
     if (!question || !allPlaced) return
     const assembled = (slots as Fragment[]).map((f) => f.text).join(' ')
+    const isCorrect = validateAnswer(assembled, question.answer)
     setAnswers((prev) => { const u = [...prev]; u[currentIndex] = assembled; return u })
     recordTiming()
-    setResult(validateAnswer(assembled, question.answer))
-    setStage('result')
-  }
-
-  function handleRetry() {
-    loadQuestion(questions, currentIndex)
+    if (isLast) handleFinish(isCorrect)
+    else handleNext(isCorrect)
   }
 
   function handleNext(currentResult: boolean) {
@@ -163,7 +157,6 @@ export default function App() {
     setAllFragments([])
     setDistractors([])
     setSlots([])
-    setResult(null)
     setScores([])
     setAnswers([])
     setTimings([])
@@ -189,7 +182,7 @@ export default function App() {
           </>
         )}
 
-        {(stage === 'practice' || stage === 'result') && question && (
+        {stage === 'practice' && question && (
           <>
             <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-5">
               <div className="flex items-center justify-between">
@@ -247,17 +240,6 @@ export default function App() {
                 </button>
               </div>
             </section>
-
-            {stage === 'result' && result !== null && (
-              <ResultCard
-                correct={result}
-                expected={question.answer}
-                onRetry={handleRetry}
-                onNext={!isLast ? () => handleNext(result) : undefined}
-                onFinish={isLast ? () => handleFinish(result) : undefined}
-                isLast={isLast}
-              />
-            )}
           </>
         )}
 
