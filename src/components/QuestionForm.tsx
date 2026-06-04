@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { parseTxt, type Question } from '../utils/txtParser'
 
 interface Props {
-  onStart: (questions: Question[]) => void
+  onStart: (questions: Question[], sessionMinutes: number) => void
 }
 
 const PLACEHOLDER = `PROMPT: "What was the highlight of your trip?"
@@ -14,6 +14,7 @@ ANSWER: "The tutor who worked with me every weekend was incredibly patient."`
 export function QuestionForm({ onStart }: Props) {
   const [text, setText] = useState('')
   const [error, setError] = useState('')
+  const [sessionMinutes, setSessionMinutes] = useState(7)
 
   function handleStart() {
     const questions = parseTxt(text)
@@ -22,7 +23,7 @@ export function QuestionForm({ onStart }: Props) {
       return
     }
     setError('')
-    onStart(questions)
+    onStart(questions, sessionMinutes)
   }
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -56,17 +57,32 @@ export function QuestionForm({ onStart }: Props) {
 
       {error && <p className="text-red-500 text-sm">{error}</p>}
 
-      <div className="flex items-center gap-4">
-        <button
-          onClick={handleStart}
-          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-6 py-2 rounded-lg transition-colors"
-        >
-          Start
-        </button>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleStart}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-6 py-2 rounded-lg transition-colors"
+          >
+            Start
+          </button>
 
-        <label className="cursor-pointer text-sm text-blue-600 hover:text-blue-800 underline">
-          Load from .txt
-          <input type="file" accept=".txt" className="hidden" onChange={handleFile} />
+          <label className="cursor-pointer text-sm text-blue-600 hover:text-blue-800 underline">
+            Load from .txt
+            <input type="file" accept=".txt" className="hidden" onChange={handleFile} />
+          </label>
+        </div>
+
+        <label className="flex items-center gap-2 text-sm text-gray-600">
+          Session time
+          <input
+            type="number"
+            min={1}
+            max={60}
+            value={sessionMinutes}
+            onChange={(e) => setSessionMinutes(Math.max(1, parseInt(e.target.value) || 1))}
+            className="w-16 border border-gray-300 rounded-md px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          min
         </label>
       </div>
     </div>

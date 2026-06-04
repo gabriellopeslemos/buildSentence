@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { QuestionForm } from './components/QuestionForm'
+import { PromptHelper } from './components/PromptHelper'
 import { SentenceBoard } from './components/DragDropBoard'
 import { ResultCard } from './components/ResultCard'
 import { ScoreSummary } from './components/ScoreSummary'
@@ -25,20 +26,21 @@ export default function App() {
   const [result, setResult] = useState<boolean | null>(null)
   const [scores, setScores] = useState<boolean[]>([])
   const [answers, setAnswers] = useState<string[]>([])
-  const [timeLeft, setTimeLeft] = useState(45)
+  const [timeLeft, setTimeLeft] = useState(40)
+  const [sessionTimeLeft, setSessionTimeLeft] = useState(7 * 60)
 
   const question = questions[currentIndex] ?? null
   const isLast = currentIndex === questions.length - 1
   const allPlaced = slots.length > 0 && slots.every((s) => s !== null)
 
-  // Countdown timer — runs only during practice
+  // Per-question countdown
   useEffect(() => {
     if (stage !== 'practice') return
     const id = setInterval(() => setTimeLeft(t => Math.max(0, t - 1)), 1000)
     return () => clearInterval(id)
   }, [stage, boardKey])
 
-  // Time ran out → record partial answer, count as wrong and advance
+  // Per-question timeout → count as wrong and advance
   useEffect(() => {
     if (stage !== 'practice' || timeLeft > 0) return
     const assembled = slots.filter(Boolean).map((f) => (f as Fragment).text).join(' ')
@@ -47,6 +49,32 @@ export default function App() {
     else handleNext(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft, stage])
+
+  // Session-wide countdown (ticks during practice and result)
+  useEffect(() => {
+    if (stage !== 'practice' && stage !== 'result') return
+    const id = setInterval(() => setSessionTimeLeft(t => Math.max(0, t - 1)), 1000)
+    return () => clearInterval(id)
+  }, [stage])
+
+  // Session timeout → mark all remaining as wrong and go to summary
+  useEffect(() => {
+    if ((stage !== 'practice' && stage !== 'result') || sessionTimeLeft > 0) return
+    const assembled = slots.filter(Boolean).map((f) => (f as Fragment).text).join(' ')
+    setAnswers((prev) => {
+      const u = [...prev]
+      u[currentIndex] = u[currentIndex] ?? assembled
+      for (let i = currentIndex + 1; i < questions.length; i++) u[i] = u[i] ?? ''
+      return u
+    })
+    setScores((prev) => {
+      const u = [...prev]
+      for (let i = currentIndex; i < questions.length; i++) u[i] = u[i] ?? false
+      return u
+    })
+    setStage('summary')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionTimeLeft, stage])
 
   function loadQuestion(qs: Question[], index: number) {
     const rawFragments = generateFragments(qs[index].answer)
@@ -65,14 +93,16 @@ export default function App() {
     setSlots(Array(withIds.length).fill(null))
     setBoardKey((k) => k + 1)
     setResult(null)
-    setTimeLeft(45)
+    setTimeLeft(40)
     setStage('practice')
   }
 
-  function handleStart(qs: Question[]) {
+  function handleStart(qs: Question[], sessionMinutes: number) {
     setQuestions(qs)
     setCurrentIndex(0)
     setScores([])
+    setAnswers([])
+    setSessionTimeLeft(sessionMinutes * 60)
     loadQuestion(qs, 0)
   }
 
@@ -108,6 +138,12 @@ export default function App() {
     setStage('summary')
   }
 
+  function fmtTime(secs: number): string {
+    const m = Math.floor(secs / 60)
+    const s = secs % 60
+    return `${m}:${s.toString().padStart(2, '0')}`
+  }
+
   function handleReset() {
     setStage('input')
     setQuestions([])
@@ -131,20 +167,30 @@ export default function App() {
         </header>
 
         {stage === 'input' && (
-          <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Enter Questions</h2>
-            <QuestionForm onStart={handleStart} />
-          </section>
+          <>
+            <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">Enter Questions</h2>
+              <QuestionForm onStart={handleStart} />
+            </section>
+            <PromptHelper />
+          </>
         )}
 
         {(stage === 'practice' || stage === 'result') && question && (
           <>
             <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-5">
-              {questions.length > 1 && (
+              <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  Question {currentIndex + 1} of {questions.length}
+                  {questions.length > 1 ? `Question ${currentIndex + 1} of ${questions.length}` : ''}
                 </p>
-              )}
+                <span
+                  className={`text-sm font-mono font-bold tabular-nums ${
+                    sessionTimeLeft <= 60 ? 'text-red-500' : 'text-gray-400'
+                  }`}
+                >
+                  {fmtTime(sessionTimeLeft)}
+                </span>
+              </div>
 
               <div>
                 <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
