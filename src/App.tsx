@@ -26,30 +26,19 @@ export default function App() {
   const [answers, setAnswers] = useState<string[]>([])
   const [timings, setTimings] = useState<number[]>([])
   const questionStartRef = useRef<number>(Date.now())
-  const [timeLeft, setTimeLeft] = useState(40)
+  const [questionElapsed, setQuestionElapsed] = useState(0)
   const [sessionTimeLeft, setSessionTimeLeft] = useState(7 * 60)
 
   const question = questions[currentIndex] ?? null
   const isLast = currentIndex === questions.length - 1
   const allPlaced = slots.length > 0 && slots.every((s) => s !== null)
 
-  // Per-question countdown
+  // Per-question elapsed counter (display only)
   useEffect(() => {
     if (stage !== 'practice') return
-    const id = setInterval(() => setTimeLeft(t => Math.max(0, t - 1)), 1000)
+    const id = setInterval(() => setQuestionElapsed(Math.round((Date.now() - questionStartRef.current) / 1000)), 1000)
     return () => clearInterval(id)
   }, [stage, boardKey])
-
-  // Per-question timeout → count as wrong and advance
-  useEffect(() => {
-    if (stage !== 'practice' || timeLeft > 0) return
-    const assembled = slots.filter(Boolean).map((f) => (f as Fragment).text).join(' ')
-    setAnswers((prev) => { const u = [...prev]; u[currentIndex] = assembled; return u })
-    recordTiming()
-    if (isLast) handleFinish(false)
-    else handleNext(false)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft, stage])
 
   // Session-wide countdown (ticks during practice)
   useEffect(() => {
@@ -99,7 +88,7 @@ export default function App() {
     setDistractors(fakeFragments)
     setSlots(Array(withIds.length).fill(null))
     setBoardKey((k) => k + 1)
-    setTimeLeft(40)
+    setQuestionElapsed(0)
     questionStartRef.current = Date.now()
     setStage('practice')
   }
@@ -223,12 +212,8 @@ export default function App() {
                     >
                       Submit
                     </button>
-                    <span
-                      className={`text-sm font-mono font-bold tabular-nums ${
-                        timeLeft <= 10 ? 'text-red-500' : 'text-gray-400'
-                      }`}
-                    >
-                      {timeLeft}s
+                    <span className="text-sm font-mono font-bold tabular-nums text-gray-400">
+                      {questionElapsed}s
                     </span>
                   </>
                 )}
