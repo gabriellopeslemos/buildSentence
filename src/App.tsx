@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { QuestionForm } from './components/QuestionForm'
-import { DragDropBoard } from './components/DragDropBoard'
+import { SentenceBoard } from './components/DragDropBoard'
 import { ResultCard } from './components/ResultCard'
 import { ScoreSummary } from './components/ScoreSummary'
 import { generateFragments } from './utils/fragmenter'
@@ -18,12 +18,15 @@ export default function App() {
   const [stage, setStage] = useState<Stage>('input')
   const [questions, setQuestions] = useState<Question[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [fragments, setFragments] = useState<Fragment[]>([])
+  const [allFragments, setAllFragments] = useState<Fragment[]>([])
+  const [slots, setSlots] = useState<(Fragment | null)[]>([])
+  const [boardKey, setBoardKey] = useState(0)
   const [result, setResult] = useState<boolean | null>(null)
   const [scores, setScores] = useState<boolean[]>([])
 
   const question = questions[currentIndex] ?? null
   const isLast = currentIndex === questions.length - 1
+  const allPlaced = slots.length > 0 && slots.every((s) => s !== null)
 
   function loadQuestion(qs: Question[], index: number) {
     const rawFragments = generateFragments(qs[index].answer)
@@ -31,7 +34,9 @@ export default function App() {
       id: `fragment-${i}-${Math.random().toString(36).slice(2)}`,
       text,
     }))
-    setFragments(withIds)
+    setAllFragments(withIds)
+    setSlots(Array(withIds.length).fill(null))
+    setBoardKey((k) => k + 1)
     setResult(null)
     setStage('practice')
   }
@@ -44,8 +49,8 @@ export default function App() {
   }
 
   function handleSubmit() {
-    if (!question) return
-    const assembled = fragments.map((f) => f.text).join(' ')
+    if (!question || !allPlaced) return
+    const assembled = (slots as Fragment[]).map((f) => f.text).join(' ')
     setResult(validateAnswer(assembled, question.answer))
     setStage('result')
   }
@@ -78,7 +83,8 @@ export default function App() {
     setStage('input')
     setQuestions([])
     setCurrentIndex(0)
-    setFragments([])
+    setAllFragments([])
+    setSlots([])
     setResult(null)
     setScores([])
   }
@@ -88,7 +94,9 @@ export default function App() {
       <div className="max-w-2xl mx-auto space-y-8">
         <header className="text-center">
           <h1 className="text-3xl font-bold text-gray-900">TOEFL Build a Sentence</h1>
-          <p className="text-gray-500 mt-1 text-sm">Drag the fragments into the correct order.</p>
+          <p className="text-gray-500 mt-1 text-sm">
+            Select a fragment, then click a slot to place it.
+          </p>
         </header>
 
         {stage === 'input' && (
@@ -100,7 +108,7 @@ export default function App() {
 
         {(stage === 'practice' || stage === 'result') && question && (
           <>
-            <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
+            <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-5">
               {questions.length > 1 && (
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                   Question {currentIndex + 1} of {questions.length}
@@ -114,18 +122,18 @@ export default function App() {
                 <p className="text-gray-800 mt-1">{question.prompt}</p>
               </div>
 
-              <div>
-                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2 block">
-                  Arrange the fragments
-                </span>
-                <DragDropBoard fragments={fragments} onChange={setFragments} />
-              </div>
+              <SentenceBoard
+                key={boardKey}
+                allFragments={allFragments}
+                onChange={setSlots}
+              />
 
               <div className="pt-1 flex items-center gap-3">
                 {stage === 'practice' && (
                   <button
                     onClick={handleSubmit}
-                    className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-6 py-2 rounded-lg transition-colors"
+                    disabled={!allPlaced}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2 rounded-lg transition-colors"
                   >
                     Submit
                   </button>
