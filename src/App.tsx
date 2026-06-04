@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { QuestionForm } from './components/QuestionForm'
 import { PromptHelper } from './components/PromptHelper'
 import { SentenceBoard } from './components/DragDropBoard'
@@ -26,6 +26,8 @@ export default function App() {
   const [result, setResult] = useState<boolean | null>(null)
   const [scores, setScores] = useState<boolean[]>([])
   const [answers, setAnswers] = useState<string[]>([])
+  const [timings, setTimings] = useState<number[]>([])
+  const questionStartRef = useRef<number>(Date.now())
   const [timeLeft, setTimeLeft] = useState(40)
   const [sessionTimeLeft, setSessionTimeLeft] = useState(7 * 60)
 
@@ -45,6 +47,7 @@ export default function App() {
     if (stage !== 'practice' || timeLeft > 0) return
     const assembled = slots.filter(Boolean).map((f) => (f as Fragment).text).join(' ')
     setAnswers((prev) => { const u = [...prev]; u[currentIndex] = assembled; return u })
+    recordTiming()
     if (isLast) handleFinish(false)
     else handleNext(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -61,6 +64,7 @@ export default function App() {
   useEffect(() => {
     if ((stage !== 'practice' && stage !== 'result') || sessionTimeLeft > 0) return
     const assembled = slots.filter(Boolean).map((f) => (f as Fragment).text).join(' ')
+    recordTiming()
     setAnswers((prev) => {
       const u = [...prev]
       u[currentIndex] = u[currentIndex] ?? assembled
@@ -75,6 +79,11 @@ export default function App() {
     setStage('summary')
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionTimeLeft, stage])
+
+  function recordTiming() {
+    const elapsed = Math.round((Date.now() - questionStartRef.current) / 1000)
+    setTimings((prev) => { const u = [...prev]; u[currentIndex] = elapsed; return u })
+  }
 
   function loadQuestion(qs: Question[], index: number) {
     const rawFragments = generateFragments(qs[index].answer)
@@ -94,6 +103,7 @@ export default function App() {
     setBoardKey((k) => k + 1)
     setResult(null)
     setTimeLeft(40)
+    questionStartRef.current = Date.now()
     setStage('practice')
   }
 
@@ -102,6 +112,7 @@ export default function App() {
     setCurrentIndex(0)
     setScores([])
     setAnswers([])
+    setTimings([])
     setSessionTimeLeft(sessionMinutes * 60)
     loadQuestion(qs, 0)
   }
@@ -110,6 +121,7 @@ export default function App() {
     if (!question || !allPlaced) return
     const assembled = (slots as Fragment[]).map((f) => f.text).join(' ')
     setAnswers((prev) => { const u = [...prev]; u[currentIndex] = assembled; return u })
+    recordTiming()
     setResult(validateAnswer(assembled, question.answer))
     setStage('result')
   }
@@ -154,6 +166,7 @@ export default function App() {
     setResult(null)
     setScores([])
     setAnswers([])
+    setTimings([])
   }
 
   return (
@@ -253,6 +266,7 @@ export default function App() {
             questions={questions}
             scores={scores}
             answers={answers}
+            timings={timings}
             onRestart={handleReset}
           />
         )}
